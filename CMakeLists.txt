@@ -1,15 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
 
-# For std::filesystem
-# Must be a cache variable and be set before project()
-# Reference: https://cmake.org/cmake/help/latest/variable/CMAKE_OSX_DEPLOYMENT_TARGET.html
-# Maybe it can be a normal variable if policy CMP0126 is set to NEW?
-set(CMAKE_OSX_DEPLOYMENT_TARGET 10.15 CACHE STRING "Minimum OS X deployment version")
-
 project(onnx_optimizer C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
-
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(cmake/utils.cmake)
@@ -19,14 +12,7 @@ if (NOT DEFINED ONNX_TARGET_NAME)
   set(ONNX_TARGET_NAME onnx)
 endif()
 
-option(ONNX_OPT_USE_SYSTEM_PROTOBUF "" OFF)
-if(NOT ONNX_OPT_USE_SYSTEM_PROTOBUF)
-  option(protobuf_BUILD_TESTS "" OFF)
-  option(protobuf_MSVC_STATIC_RUNTIME "" ${ONNX_USE_MSVC_STATIC_RUNTIME})
-  add_subdirectory_if_no_target(${PROJECT_SOURCE_DIR}/third_party/protobuf/cmake libprotobuf)
-endif()
-
-
+# Set the ONNX root directory
 set(ONNX_ROOT ${PROJECT_SOURCE_DIR}/third_party/onnx)
 add_subdirectory_if_no_target(${ONNX_ROOT} ${ONNX_TARGET_NAME})
 
@@ -49,7 +35,6 @@ target_include_directories(onnx_optimizer PUBLIC
 
 onnxopt_add_executable(onnx_optimizer_exec examples/onnx_optimizer_exec.cpp)
 target_link_libraries(onnx_optimizer_exec onnx_optimizer)
-
 
 file(GLOB onnx_opt_c_api_srcs "onnxoptimizer/c_api/*.cc"
   "onnxoptimizer/c_api/*.h"
@@ -127,21 +112,13 @@ if(BUILD_ONNX_PYTHON)
     target_compile_options(onnx_opt_cpp2py_export
                            PRIVATE /MP
                                    /WX
-                                   /wd4800 # disable warning type' : forcing
-                                           # value to bool 'true' or 'false'
-                                           # (performance warning)
-                                   /wd4503 # identifier' : decorated name length
-                                           # exceeded, name was truncated
-                                   /wd4146 # unary minus operator applied to
-                                           # unsigned type, result still
-                                           # unsigned from include\google\protob
-                                           # uf\wire_format_lite.h
-                                 /wd4244 # 'argument': conversion from 'google::
-                                         # protobuf::uint64' to 'int', possible
-                                         # loss of data
-                                 /wd4267 # Conversion from 'size_t' to 'int',
-                                         # possible loss of data
-                                 /wd4996 # The second parameter is ignored.
+                                   /wd4146 # unary minus operator applied to unsigned type,
+                                           # result still unsigned
+                                   /wd4244 # 'argument': conversion from 'google::
+                                           # protobuf::uint64' to 'int', possible
+                                           # loss of data
+                                   /wd4267 # Conversion from 'size_t' to 'int',
+                                           # possible loss of data
                                    ${EXTRA_FLAGS})
     if(ONNX_USE_PROTOBUF_SHARED_LIBS)
       target_compile_options(onnx_opt_cpp2py_export
@@ -177,4 +154,3 @@ install(EXPORT ONNXOptimizerTargets DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/O
 install(TARGETS
   onnx_optimizer onnx_optimizer_c_api
   EXPORT ONNXOptimizerTargets DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
