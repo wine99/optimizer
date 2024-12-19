@@ -45,8 +45,13 @@ def optimize(model, passes=None, fixed_point=False):  # type: (ModelProto, Optio
         else:
             optimized_model_str = C.optimize(model_str, passes)
 
-        return onnx.load_from_string(optimized_model_str)
-    except ValueError:
+        if len(optimized_model_str) == 0:
+            raise ValueError("Optimized model is empty")
+
+        optimized = onnx.load_from_string(optimized_model_str)
+        onnx.checker.check_model(optimized)
+        return optimized
+    except (ValueError, onnx.checker.ValidationError):
         file_src = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False)
         file_dest = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False)
         data_file_src = tempfile.NamedTemporaryFile(delete=False)
@@ -59,8 +64,13 @@ def optimize(model, passes=None, fixed_point=False):  # type: (ModelProto, Optio
                 C.optimize_fixedpoint_from_path(file_src.name, file_dest.name, passes, data_dest_rel_filename)
             else:
                 C.optimize_from_path(file_src.name, file_dest.name, passes, data_dest_rel_filename)
+            onnx.checker.check_model(file_dest.name)
             return onnx.load(file_dest, load_external_data=True)
         finally:
+            file_src.close()
+            file_dest.close()
+            data_file_src.close()
+            data_file_dest.close()
             os.remove(file_src.name)
             os.remove(file_dest.name)
             os.remove(data_file_src.name)
